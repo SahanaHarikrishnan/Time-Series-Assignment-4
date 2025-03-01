@@ -1,0 +1,75 @@
+---
+title: "Time Series Assignment 4"
+output: html_document
+date: "2025-02-28"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(fpp)
+library(fpp2)
+library(TTR)
+
+data <- read.csv("Unemployment_Canada_1976_present.csv")
+data$REF_DATE <- as.Date(paste0(data$REF_DATE, "-01"))  # Convert to Date
+
+##weighted average
+datafiltered <- data %>%
+  group_by(REF_DATE) %>%
+  summarize(Unemployment_Rate = weighted.mean(Unemployment.rate, Labour.force, na.rm=TRUE))
+
+tsdata <- ts(datafiltered$Unemployment_Rate, start=c(1976,1), frequency=12)
+
+```
+
+```{r}
+plot(tsdata, main="Unemployment Rate in Canada", ylab="Rate", xlab="Year")
+Acf(tsdata, main="ACF of Unemployment Rate")
+
+etsforecast <- ets(tsdata)
+plot(ets_forecast)
+title("ETS Decomposition of Unemployment Rate")
+attributes(ets_forecast)
+etsforecast$mse
+```
+## According to the ACF plot, there are no consistent spikes at the intervals of 12, showing that there is no significant seasonality present. However, is a downward trend showing in the spikes. The decomposition also shows that there is a trend but no seasonality. 
+
+```{r}
+holtforecast <- holt(tsdata, h=5, beta=0.2)
+plot(holtforecast, main="Holt's Exponential Smoothing")
+
+meanforecast <- meanf(tsdata, h=5)
+naiveforecast <- naive(tsdata, h=5)
+rwf_forecast <- rwf(tsdata, h=5)
+rwf_forecast_drift <- rwf(tsdata, h=5, drift=TRUE)
+seasonalnaiveforecast <- snaive(tsdata, h=5)
+
+plot(tsdata, main="Forecast Comparisons", ylab="Unemployment Rate", xlab="Year", col="black")
+lines(meanforecast$mean, col="blue", lwd=2)
+lines(naiveforecast$mean, col="red", lwd=3)  # Increase line width
+lines(rwf_forecast$mean, col="green", lwd=2)
+lines(seasonalnaiveforecast$mean, col="purple", lwd=2)
+lines(holtforecast$mean, col="orange", lwd=2)
+legend("topleft", legend=c("Mean", "Naive", "Random Walk", "Seasonal Naive", "Holt"),
+       col=c("blue", "red", "green", "purple", "orange"), lty=1, lwd=3)
+
+
+
+```
+
+```{r}
+tsaccuracy <- data.frame(
+  Mean = accuracy(meanforecast)[2],
+  Naive = accuracy(naiveforecast)[2],
+  Seasonal_Naive = accuracy(seasonalnaiveforecast)[2],
+  Holt = accuracy(holtforecast)[2]
+)
+
+
+tsaccuracy
+```
+## As we can see by the errors, the Naive method is the best which could be explained by recent stability in uemployment, closely followed by Holt, which I used over Holt-Winters due to the absence of seasonality. In the long-term, the Holt-model could be a more suitable model to use. 
